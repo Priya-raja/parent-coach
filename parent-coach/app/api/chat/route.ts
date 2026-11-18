@@ -2,16 +2,27 @@
 import { openai } from '@ai-sdk/openai';
 import {
   streamText,
+  tool,
+  stepCountIs,
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
   type UIMessage,
   validateUIMessages,
 } from 'ai';
+import { followUpInputSchema } from '@/lib/follow-ups';
 import { SYSTEM_PROMPT } from '@/lib/prompts';
 import { isCrisis, CRISIS_RESPONSE } from '@/lib/safety';
 
 export const runtime = 'edge';
+
+const tools = {
+  schedule_follow_up: tool({
+    description: 'Schedule a local parenting check-in. Only schedule after the parent agrees. Give a specific prompt and a positive delay in hours. Include child_name whenever the child’s name is known.',
+    inputSchema: followUpInputSchema,
+    execute: async () => 'Follow up scheduled.',
+  }),
+};
 
 function getText(m: UIMessage): string {
   return m.parts
@@ -26,7 +37,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     language = body.language === 'ur' ? 'ur' : 'en';
-    messages = await validateUIMessages({ messages: body.messages });
+    messages = await validateUIMessages({ messages: body.messages, tools });
     if (!messages.some((message) => message.role === 'user') ||
         messages.some((message) => message.role !== 'user' && message.role !== 'assistant')) {
       return Response.json({ error: 'Expected a user and assistant conversation.' }, { status: 400 });
@@ -57,13 +68,12 @@ export async function POST(req: Request) {
   const languageInstruction = language === 'ur'
     ? '\n\nCRITICAL: Reply ONLY in Urdu.'
     : '\n\nCRITICAL: Reply ONLY in English.';
-  const responseLabels = language === 'ur'
-    ? '\nTranslate the mandatory section labels into Urdu: **ہمدردی:**, **یہ آزمائیں:**, **دوبارہ بتائیں:**. Do not include English labels.'
-    : '';
   const result = streamText({
     model: openai('gpt-4o-mini'),
-    system: SYSTEM_PROMPT + languageInstruction + responseLabels,
+    system: SYSTEM_PROMPT + languageInstruction,
     messages: await convertToModelMessages(messages),
+    tools,
+    stopWhen: stepCountIs(3),
   });
 
   return result.toUIMessageStreamResponse();
