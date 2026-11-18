@@ -1,5 +1,7 @@
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
+import { anthropic } from '@ai-sdk/anthropic';
 import {
   streamText,
   tool,
@@ -11,10 +13,24 @@ import {
   validateUIMessages,
 } from 'ai';
 import { followUpInputSchema } from '@/lib/follow-ups';
+import { MISSING_API_KEY_MESSAGE } from '@/lib/chat-errors';
 import { SYSTEM_PROMPT } from '@/lib/prompts';
 import { isCrisis, CRISIS_RESPONSE } from '@/lib/safety';
 
 export const runtime = 'edge';
+
+function getModel() {
+  if (process.env.ANTHROPIC_API_KEY?.trim()) {
+    return anthropic(process.env.ANTHROPIC_MODEL?.trim() || 'claude-sonnet-5-5');
+  }
+  if (process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim()) {
+    return google(process.env.GOOGLE_MODEL?.trim() || 'gemini-1.5-flash');
+  }
+  if (process.env.OPENAI_API_KEY?.trim()) {
+    return openai(process.env.OPENAI_MODEL?.trim() || 'gpt-4o-mini');
+  }
+  throw new Error('No API key found. Please set ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, or OPENAI_API_KEY in .env.local');
+}
 
 const tools = {
   schedule_follow_up: tool({
@@ -46,10 +62,18 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid chat messages.' }, { status: 400 });
   }
 
-  // 1. Crisis pre-check — runs BEFORE the model sees anything.
-  const hasCrisis = messages.some((message) =>
-    message.role === 'user' && isCrisis(getText(message))
+  // Screen every user turn, but only the current crisis blocks this request.
+  // Earlier crisis exchanges stay visible in the UI and never reach the model.
+  const crisisIndexes = messages.flatMap((message, index) =>
+    message.role === 'user' && isCrisis(getText(message)) ? [index] : []
   );
+  const lastUserIndex = messages.reduce((last, message, index) => message.role === 'user' ? index : last, -1);
+  const lastCrisisIndex = crisisIndexes.at(-1) ?? -1;
+  const hasCrisis = lastCrisisIndex === lastUserIndex;
+  const nextUserIndex = lastCrisisIndex < 0 ? 0 : messages.findIndex((message, index) =>
+    index > lastCrisisIndex && message.role === 'user'
+  );
+  const modelMessages = messages.slice(nextUserIndex < 0 ? messages.length : nextUserIndex);
 
   if (hasCrisis) {
     return createUIMessageStreamResponse({
@@ -64,14 +88,26 @@ export async function POST(req: Request) {
     });
   }
 
+  // Configuration errors are returned as text so useChat can display them.
+  // Keep this after the crisis gate: crisis responses need no provider or key.
+  let model;
+  try {
+    model = getModel();
+  } catch {
+    return new Response(MISSING_API_KEY_MESSAGE, {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
+  }
+
   // 2. Normal path — stream from the model.
   const languageInstruction = language === 'ur'
     ? '\n\nCRITICAL: Reply ONLY in Urdu.'
     : '\n\nCRITICAL: Reply ONLY in English.';
   const result = streamText({
-    model: openai('gpt-4o-mini'),
+    model,
     system: SYSTEM_PROMPT + languageInstruction,
-    messages: await convertToModelMessages(messages),
+    messages: await convertToModelMessages(modelMessages),
     tools,
     stopWhen: stepCountIs(3),
   });

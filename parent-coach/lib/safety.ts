@@ -2,7 +2,8 @@
 
 const CRISIS_PATTERNS: RegExp[] = [
   // English — self-harm / suicide
-  /\b(kill myself|end it|suicide|hurt myself|cutting|overdose|want to die)\b/i,
+  /\b(kill myself|kill himself|kill herself|kill themself|end it|suicide|hurt myself|overdose|want to die)\b/i,
+  /\b(cutting myself|cutting themself|cutting himself|cutting herself|self harm|self-harm)\b/i,
   // English — abuse / emergency
   /\b(abusing|abused|beaten|beating|hit me|hits me|emergency|in danger|unsafe|violence)\b/i,
 
@@ -37,7 +38,6 @@ You deserve real human support right now. Please reach out to one of the numbers
 
 **براہ کرم ابھی یہ کریں:**
 - اپنے مقامی ایمرجنسی نمبر پر کال کریں۔
-- پاکستان میں **امنگ** سے **0311-7786264** پر رابطہ کریں۔
 - اگر بچہ فوری خطرے میں ہے تو مقامی چائلڈ پروٹیکشن سروس یا پولیس سے رابطہ کریں۔
 
 آپ کو اس وقت حقیقی انسانی مدد کی ضرورت ہے۔ براہ کرم اوپر دیے گئے نمبروں میں سے کسی ایک پر رابطہ کریں۔

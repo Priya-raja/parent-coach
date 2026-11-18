@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { DefaultChatTransport, type UIMessage } from 'ai';
 import Markdown from 'react-markdown';
+import { MISSING_API_KEY_MESSAGE } from '@/lib/chat-errors';
 import { FOLLOW_UP_KEY, readFollowUps, saveFollowUp, takeDueFollowUp, type PendingFollowUp } from '@/lib/follow-ups';
 
 import { CHAT_HISTORY_KEY, readChatHistory, saveChatHistory, type ChatMessage } from '@/lib/chat-history';
@@ -256,6 +257,7 @@ export default function ChatPage() {
       </header>
 
       <section className="chat-space" aria-label="Parenting conversation">
+
         <div ref={conversation} className="conversation" onScroll={(event) => {
           const element = event.currentTarget;
           const nearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
@@ -302,7 +304,9 @@ export default function ChatPage() {
           ? (historyError === 'clear' ? 'اس براؤزر سے محفوظ گفتگو یا چیک اِن حذف نہیں ہو سکے۔' : 'اس براؤزر میں گفتگو بحال یا محفوظ نہیں ہو سکی۔ آپ بات جاری رکھ سکتے ہیں۔')
           : (historyError === 'restore' ? 'Saved conversation couldn’t be restored. You can start a new chat.' : historyError === 'clear' ? 'Saved conversation or check-ins couldn’t be cleared in this browser.' : 'This conversation couldn’t be saved. You can keep chatting, but it may be lost on refresh.')}</p>}
         {schedulingError && <p role="status" className="error-message" lang={language} dir="auto">{language === 'ur' ? 'اس براؤزر میں چیک اِن محفوظ نہیں ہو سکا۔ آپ بعد میں خود واپس آ سکتے ہیں۔' : 'Check-ins couldn’t be saved in this browser. You can still return here when you’re ready.'}</p>}
-        {error && <p role="alert" className="error-message" lang={language} dir="auto">{language === 'ur' ? 'آپ کا پیغام مکمل نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔' : 'Your message couldn’t be completed. Please try again.'}</p>}
+        {error && <p role="alert" className="error-message" lang={language} dir="auto">{error.message === MISSING_API_KEY_MESSAGE
+          ? (language === 'ur' ? 'چیٹ شروع کرنے کے لیے .env.local میں API کلید درج کریں۔' : MISSING_API_KEY_MESSAGE)
+          : (language === 'ur' ? 'آپ کا پیغام مکمل نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔' : 'Your message couldn’t be completed. Please try again.')}</p>}
         <form onSubmit={handleSubmit} className="composer">
           <textarea disabled={!historyReady || isResetting} ref={inputRef} rows={1} aria-label={language === 'ur' ? 'آپ کی پریشانی' : 'Your parenting concern'} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={language === 'ur' ? 'آپ کے ذہن میں کیا ہے؟' : "What's on your mind?"} lang={language} dir={language === 'ur' ? 'rtl' : 'ltr'} />
           <button type="submit" disabled={!historyReady || isResetting || isLoading || !input.trim()} aria-label={language === 'ur' ? 'پیغام بھیجیں' : 'Send message'}><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 14-7-7 14-1.5-5.5L5 12Zm5.5 1.5L19 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
