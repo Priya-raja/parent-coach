@@ -1,84 +1,113 @@
-// app/page.tsx
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { type UIMessage } from 'ai';
+import { DefaultChatTransport, type UIMessage } from 'ai';
+import Markdown from 'react-markdown';
 
-function getText(m: UIMessage): string {
-  return m.parts
-    .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-    .map((p) => p.text)
-    .join('');
+function getText(message: UIMessage): string {
+  return message.parts.filter((part): part is { type: 'text'; text: string } => part.type === 'text').map((part) => part.text).join('');
 }
 
+function Sprout({ small = false }: { small?: boolean }) {
+  return <svg width={small ? 22 : 46} height={small ? 22 : 46} viewBox="0 0 48 48" fill="none" aria-hidden="true"><path d="M24 40V23M24 32C12 33 7 26 8 16c10 0 16 5 16 16ZM24 25C24 14 30 8 40 8c1 10-5 17-16 17Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>;
+}
+
+const translations = {
+  en: {
+    eyebrow: 'A LITTLE SPACE TO RESET',
+    headline: 'Parenting is a lot.',
+    reassurance: 'You don’t have to hold it all alone.',
+    subtext: 'Take a breath. Tell me what’s on your mind.',
+    nextStep: 'We’ll find a small next step, together.',
+    startLabel: 'NOT SURE WHERE TO START?',
+    suggestions: ['Bedtime feels like a battle', 'Help me stay calm', 'My child won’t listen'],
+  },
+  ur: {
+    eyebrow: 'ایک چھوٹی سی جگہ سکون کے لیے',
+    headline: 'والدین ہونا آسان نہیں۔',
+    reassurance: 'آپ کو یہ سب اکیلے نہیں کرنا ہے۔',
+    subtext: 'ایک گہری سانس لیں۔ مجھے بتائیں آپ کے ذہن میں کیا ہے۔',
+    nextStep: 'آئیے، مل کر کوئی راستہ ڈھونڈتے ہیں۔',
+    startLabel: 'سمجھ نہیں آ رہا کہاں سے شروع کریں؟',
+    suggestions: ['سونے کا وقت ایک جنگ لگتا ہے', 'مجھے پرسکون رہنے میں مدد کریں', 'میرا بچہ نہیں سنتا'],
+  },
+};
+
 export default function ChatPage() {
-  const { messages, sendMessage, status, error } = useChat();
+  const [language, setLanguage] = useState<'en' | 'ur'>('en');
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ body: { language } }),
+  });
+  const copy = translations[language];
   const [input, setInput] = useState('');
+  const conversation = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  useEffect(() => {
+    const element = conversation.current;
+    if (element) element.scrollTop = element.scrollHeight;
+  }, [messages, status]);
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!input.trim() || isLoading) return;
     void sendMessage({ text: input.trim() });
     setInput('');
   }
-  const isLoading = status === 'submitted' || status === 'streaming';
 
   return (
-    <main className="mx-auto flex h-screen max-w-2xl flex-col p-4">
-      <header className="mb-3 border-b pb-3">
-        <h1 className="text-xl font-semibold">Parent Coach</h1>
-        <p className="text-xs text-gray-500">
-          Brief, practical support. Not a substitute for medical, legal, or
-          emergency help.
-        </p>
+    <main className="coach-shell">
+      <header className="greeting">
+        <span className="brand-mark"><Sprout small /></span>
+        <div className="greeting-text"><p className="eyebrow">PARENT COACH</p><p className="greeting-copy" lang={language} dir={language === 'ur' ? 'rtl' : 'ltr'}>{language === 'ur' ? <>صبح بخیر۔<br /><span>سکون آپ کے قریب ہے۔</span></> : <>Good morning.<br /><span>A calmer you is closer.</span></>}</p></div>
+        <div className="header-actions">
+          <span className="sun" aria-hidden="true">☀</span>
+          <div className="language-toggle" role="group" aria-label="Reply language">
+            {(['en', 'ur'] as const).map((option) => <button key={option} type="button" aria-label={option === 'en' ? 'English' : 'Urdu'} aria-pressed={language === option} onClick={() => setLanguage(option)}>{option.toUpperCase()}</button>)}
+          </div>
+        </div>
       </header>
 
-      <div className="flex-1 space-y-4 overflow-y-auto">
-        {messages.length === 0 && (
-          <p className="text-sm text-gray-400" dir="auto">
-            Ask a parenting concern in English or Urdu. مثال: &ldquo;میرا بچہ رات
-            کو نہیں سوتا&rdquo; یا &ldquo;My child refuses to do homework.&rdquo;
-          </p>
-        )}
+      <section className="chat-space" aria-label="Parenting conversation">
+        <div ref={conversation} className="conversation" role="log" aria-label="Messages" aria-live="polite" aria-relevant="additions text" aria-busy={isLoading}>
+          {messages.length === 0 ? (
+            <div className="welcome" lang={language} dir={language === 'ur' ? 'rtl' : 'ltr'}>
+              <div className="welcome-emblem"><Sprout /></div>
+              <p className="eyebrow">{copy.eyebrow}</p>
+              <h1>{copy.headline}<br /><em>{copy.reassurance}</em></h1>
+              <p className="welcome-copy">{copy.subtext}{language === 'en' && <><br />{copy.nextStep}</>}</p>
+              <p className="urdu-welcome" lang="ur" dir="rtl">{translations.ur.nextStep}</p>
+              <div className="suggestions" aria-label={copy.startLabel}>
+                <p>{copy.startLabel}</p>
+                {copy.suggestions.map((text) => <button type="button" key={text} onClick={() => { setInput(text); inputRef.current?.focus(); }}>{text}<span aria-hidden="true">↗</span></button>)}
+              </div>
+            </div>
+          ) : (
+            <div className="message-list">
+              <div className="conversation-start"><Sprout small /><span>One small step at a time</span></div>
+              {messages.map((message) => (
+                <article key={message.id} dir="auto" className={`message ${message.role === 'user' ? 'message-user' : 'message-coach'}`}>
+                  <p className="message-author">{message.role === 'user' ? 'You' : 'Parent Coach'}</p>
+                  <div className="message-body">{message.role === 'user' ? getText(message) : <Markdown components={{ p: ({ children }) => <p dir="auto">{children}</p>, li: ({ children }) => <li dir="auto">{children}</li>, a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> }}>{getText(message)}</Markdown>}</div>
+                </article>
+              ))}
+              {isLoading && <p className="typing" role="status"><span />Coach is {status === 'streaming' ? 'replying' : 'thinking'}…</p>}
+            </div>
+          )}
+        </div>
+      </section>
 
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            dir="auto"
-            className={`whitespace-pre-wrap rounded-lg p-3 text-sm ${
-              m.role === 'user'
-                ? 'ml-auto max-w-[85%] bg-blue-50'
-                : 'mr-auto max-w-[85%] bg-gray-50'
-            }`}
-          >
-            <strong className="mb-1 block text-xs text-gray-500">
-              {m.role === 'user' ? 'You' : 'Coach'}
-            </strong>
-            {getText(m)}
-          </div>
-        ))}
-
-        {isLoading && <p className="text-xs text-gray-400">Coach is typing…</p>}
-      </div>
-
-      {error && <p role="alert" className="mt-2 text-sm text-red-700">Unable to get a reply. Please try again.</p>}
-      <form onSubmit={handleSubmit} className="mt-3 flex gap-2">
-        <input
-          aria-label="Your parenting concern"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="Type in English or Urdu…"
-          dir="auto"
-          className="flex-1 rounded-lg border px-3 py-2 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={isLoading || !input.trim()}
-          className="rounded-lg bg-black px-4 py-2 text-sm text-white disabled:opacity-40"
-        >
-          Send
-        </button>
-      </form>
+      <footer className="composer-area">
+        {error && <p role="alert" className="error-message">Your message couldn’t be completed. Please try again.</p>}
+        <form onSubmit={handleSubmit} className="composer">
+          <textarea ref={inputRef} rows={1} aria-label="Your parenting concern" value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={language === 'ur' ? 'آپ کے ذہن میں کیا ہے؟' : "What's on your mind?"} lang={language} dir={language === 'ur' ? 'rtl' : 'ltr'} />
+          <button type="submit" disabled={isLoading || !input.trim()} aria-label="Send message"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 12 14-7-7 14-1.5-5.5L5 12Zm5.5 1.5L19 5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+        </form>
+        <p className="language-note">English or اردو · A little support, at your pace</p>
+        <p className="disclaimer">Coaching support. Not a substitute for medical, legal, or emergency help.</p>
+      </footer>
     </main>
   );
 }
