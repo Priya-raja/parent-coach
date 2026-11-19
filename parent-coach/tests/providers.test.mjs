@@ -126,7 +126,7 @@ test('an earlier crisis does not trap later everyday messages or reach the model
 });
 
 
-test('message language takes priority over the interface language', async () => {
+test('selected reply language overrides message language and mixed history', async () => {
   await withEnvironment({ OPENAI_API_KEY: 'test' }, async () => {
     for (const [language, text] of [
       ['en', 'میرا بچہ کھانا نہیں کھاتا'],
@@ -137,14 +137,39 @@ test('message language takes priority over the interface language', async () => 
       const response = await POST(new Request('http://localhost/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ language, messages: [
+          { id: 'old-user', role: 'user', parts: [{ type: 'text', text: 'Earlier conversation' }] },
+          { id: 'old-assistant', role: 'assistant', parts: [{ type: 'text', text: 'پچھلا جواب' }] },
           { id: 'u1', role: 'user', parts: [{ type: 'text', text }] },
         ] }),
       }));
       assert.equal(response.status, 200);
       assert.equal(calls.length, 1);
-      assert.ok(calls[0].system.includes('Urdu even when the interface is English'));
-      assert.ok(calls[0].system.includes('English even when the interface is Urdu'));
-      assert.ok(!calls[0].system.includes('Reply ONLY'));
+      assert.ok(calls[0].system.includes(`Reply ONLY in ${language === 'ur' ? 'Urdu' : 'English'}`));
+      assert.ok(calls[0].system.endsWith('This selection takes priority over the earlier language-matching instructions.'));
     }
   });
+});
+
+test('one chat transport reads the latest reply language for every request', async () => {
+  const { DefaultChatTransport } = await import('ai');
+  const languageRef = { current: 'en' };
+  const bodies = [];
+  const transport = new DefaultChatTransport({
+    body: () => ({ language: languageRef.current }),
+    fetch: async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return new Response('data: [DONE]\n\n', {
+        headers: { 'Content-Type': 'text/event-stream' },
+      });
+    },
+  });
+  for (const language of ['en', 'ur', 'en']) {
+    languageRef.current = language;
+    const stream = await transport.sendMessages({
+      trigger: 'submit-message', chatId: 'language-test', messages: [],
+    });
+    const reader = stream.getReader();
+    while (!(await reader.read()).done) { /* Consume the mock reply. */ }
+  }
+  assert.deepEqual(bodies.map((body) => body.language), ['en', 'ur', 'en']);
 });

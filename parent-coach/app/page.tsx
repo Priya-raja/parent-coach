@@ -40,6 +40,12 @@ const translations = {
 
 export default function ChatPage() {
   const [language, setLanguage] = useState<'en' | 'ur'>('en');
+  const languageRef = useRef(language);
+  // The SDK stores this body callback and invokes it only when sending a request.
+  // eslint-disable-next-line react-hooks/refs
+  const [transport] = useState(() => new DefaultChatTransport({
+    body: () => ({ language: languageRef.current }),
+  }));
   const [schedulingError, setSchedulingError] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
   const [historyError, setHistoryError] = useState<'restore' | 'save' | 'clear' | null>(null);
@@ -51,7 +57,7 @@ export default function ChatPage() {
   const checkingFollowUps = useRef(false);
   const { messages, setMessages, sendMessage, stop, clearError, status, error } = useChat<ChatMessage>({
     messages: [],
-    transport: new DefaultChatTransport({ body: { language } }),
+    transport,
     onError: () => {
       const due = inFlightFollowUp.current;
       if (!due || resetting.current) return;
@@ -74,6 +80,11 @@ export default function ChatPage() {
       }
     },
   });
+  const sendMessageRef = useRef(sendMessage);
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
+
   const copy = translations[language];
   const [input, setInput] = useState('');
   const conversation = useRef<HTMLDivElement>(null);
@@ -167,7 +178,8 @@ export default function ChatPage() {
           }
           if (!due) return;
           inFlightFollowUp.current = due;
-          await sendMessage({
+          // Read the latest chat sender when the timer fires, not when it starts.
+          await sendMessageRef.current({
             role: 'user',
             metadata: { hiddenFollowUp: true },
             parts: [{ type: 'text', text: `System instruction: It is time for the follow-up you scheduled. Check in on how ${due.child_name ?? 'your child'} is doing with ${due.prompt}. Generate the follow-up now.` }],
@@ -203,9 +215,9 @@ export default function ChatPage() {
       window.removeEventListener('online', onResume);
       document.removeEventListener('visibilitychange', onResume);
     };
-  }, [isLoading, status, sendMessage, historyReady, isResetting]);
+  }, [isLoading, status, historyReady, isResetting]);
 
-  async function handleClearChat() {
+  async function handleClearChat(nextLanguage?: 'en' | 'ur') {
     if (resetting.current) return;
     resetting.current = true;
     resetVersion.current += 1;
@@ -213,15 +225,20 @@ export default function ChatPage() {
     inFlightFollowUp.current = undefined;
     try {
       await stop();
+      if (nextLanguage) {
+        languageRef.current = nextLanguage;
+        setLanguage(nextLanguage);
+      }
       setMessages([]);
       clearError();
       setInput('');
-      scheduledCalls.current.clear();
+      if (!nextLanguage) scheduledCalls.current.clear();
       followReplies.current = true;
       setSchedulingError(false);
       let failed = false;
-      // Attempt both removals even if browser storage rejects one of them.
-      for (const key of [CHAT_HISTORY_KEY, FOLLOW_UP_KEY]) {
+      // Language switches clear conversation context but preserve reminders.
+      const keys = nextLanguage ? [CHAT_HISTORY_KEY] : [CHAT_HISTORY_KEY, FOLLOW_UP_KEY];
+      for (const key of keys) {
         try { window.localStorage.removeItem(key); } catch { failed = true; }
       }
       setHistoryError(failed ? 'clear' : null);
@@ -248,7 +265,7 @@ export default function ChatPage() {
         <div className="header-actions">
           <svg className="sun" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5" /></svg>
           <div className="language-toggle" role="group" aria-label="Reply language">
-            {(['en', 'ur'] as const).map((option) => <button key={option} type="button" aria-label={option === 'en' ? 'English' : 'Urdu'} aria-pressed={language === option} onClick={() => setLanguage(option)}>{option.toUpperCase()}</button>)}
+            {(['en', 'ur'] as const).map((option) => <button key={option} type="button" disabled={!historyReady || isResetting} aria-label={option === 'en' ? 'English' : 'Urdu'} aria-pressed={language === option} onClick={() => { if (option !== language) void handleClearChat(option); }}>{option.toUpperCase()}</button>)}
           </div>
           <button type="button" className="clear-chat" disabled={!historyReady || isResetting} onClick={() => { void handleClearChat(); }} aria-label={language === 'ur' ? 'گفتگو صاف کریں' : 'Clear chat'} title={language === 'ur' ? 'گفتگو صاف کریں' : 'Clear chat'}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6m4-6v6" /></svg>
