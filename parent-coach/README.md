@@ -1,3 +1,8 @@
+Here is the complete, professional `README.md` tailored for your submission. Replace the entire default file with this.
+
+***
+
+```markdown
 # Parent Coach
 
 A bilingual (English/Urdu) AI parenting coach built with Next.js 15, Tailwind CSS, and the Vercel AI SDK. 
@@ -14,43 +19,42 @@ A bilingual (English/Urdu) AI parenting coach built with Next.js 15, Tailwind CS
 1. **Install dependencies:**
    ```bash
    npm install
-Configure your API key:
-Create a .env.local file in the root directory and add one of the following keys:
+   ```
 
-env
-# Option 1: Anthropic (Claude)
-ANTHROPIC_API_KEY=sk-ant-...
+2. **Configure your API key:**
+   Create a `.env.local` file in the root directory and add **one** of the following keys:
+   ```env
+   # Option 1: Anthropic (Claude)
+   ANTHROPIC_API_KEY=sk-ant-...
 
-# Option 2: Google Gemini (Free tier available at https://aistudio.google.com/apikey)
-GOOGLE_GENERATIVE_AI_API_KEY=AIza...
+   # Option 2: Google Gemini (Free tier available at https://aistudio.google.com/apikey)
+   GOOGLE_GENERATIVE_AI_API_KEY=AIza...
 
-# Option 3: OpenAI
-OPENAI_API_KEY=sk-...
-The app checks for the Anthropic key first, then the Google key, then the OpenAI key.
+   # Option 3: OpenAI
+   OPENAI_API_KEY=sk-...
+   ```
+   *The app checks for the Anthropic key first, then the Google key, then the OpenAI key.*
 
-Run the development server:
+3. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
 
-bash
-npm run dev
-Open http://localhost:3000 in your browser.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-Testing the Safety Gate
+## Testing the Safety Gate
 To verify the pre-LLM crisis gate works, try sending one of these messages:
-
-English: "I want to end it all"
-
-Urdu: "میرے شوہر بچے کو مارتے ہیں" (My husband hits the child)
+- English: *"I want to end it all"*
+- Urdu: *"میرے شوہر بچے کو مارتے ہیں"* (My husband hits the child)
 
 You will immediately see a hardcoded helpline message and no AI generation.
 
-Tech Stack
-Next.js 15 (App Router)
+## Tech Stack
+- Next.js 15 (App Router)
+- Vercel AI SDK (`ai`, `@ai-sdk/react`, `@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/anthropic`)
+- Tailwind CSS
+- `react-markdown` for rendering AI responses
 
-Vercel AI SDK (ai, @ai-sdk/react, @ai-sdk/openai, @ai-sdk/google, @ai-sdk/anthropic)
-
-Tailwind CSS
-
-react-markdown for rendering AI responses
-
-Note on Development
-This project was built using Codex as the primary coding agent, supported by custom .agents/skills (design philosophy and strict React rules) to enforce UI quality and edge-case handling. GitHub Copilot was used for initial scaffolding.
+## Note on Development
+This project was built using Codex as the primary coding agent, supported by custom `.agents/skills` (design philosophy and strict React rules) to enforce UI quality and edge-case handling. GitHub Copilot was used for initial scaffolding.
+```
