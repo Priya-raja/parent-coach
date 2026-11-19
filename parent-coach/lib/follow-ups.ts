@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const followUpInputSchema = z.object({
   prompt: z.string().trim().min(1).max(2000),
   child_name: z.string().trim().min(1).max(200).optional().describe('The child’s name, if known. Always include it when the parent has provided it.'),
-  delay_hours: z.number().finite().positive().max(8760),
+  delay_minutes: z.number().finite().positive().max(525600).describe('The number of minutes from now to schedule the check-in. (e.g., 1 for one minute, 60 for one hour, 1440 for one day).'),
 });
 
 const pendingFollowUpSchema = z.object({
@@ -27,8 +27,8 @@ export function readFollowUps(storage: Pick<Storage, 'getItem'>): PendingFollowU
 }
 
 export function saveFollowUp(storage: Pick<Storage, 'getItem' | 'setItem'>, input: unknown): PendingFollowUp {
-  const { prompt, delay_hours, child_name } = followUpInputSchema.parse(input);
-  const reminder = { id: crypto.randomUUID(), prompt, ...(child_name ? { child_name } : {}), dueAt: Date.now() + delay_hours * 60 * 60 * 1000 };
+  const { prompt, delay_minutes, child_name } = followUpInputSchema.parse(input);
+  const reminder = { id: crypto.randomUUID(), prompt, ...(child_name ? { child_name } : {}), dueAt: Date.now() + delay_minutes * 60 * 1000 };
   storage.setItem(FOLLOW_UP_KEY, JSON.stringify([...readFollowUps(storage), reminder]));
   return reminder;
 }

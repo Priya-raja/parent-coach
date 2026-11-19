@@ -19,17 +19,17 @@ const storage = (initial = null) => {
 };
 
 test('validates prompts and bounded positive delays', () => {
-  for (const delay_hours of [0, -1, Infinity, NaN, 8761, '24']) {
-    assert.equal(followUpInputSchema.safeParse({ prompt: 'Check bedtime', delay_hours }).success, false);
+  for (const delay_minutes of [0, -1, Infinity, NaN, 525601, '24']) {
+    assert.equal(followUpInputSchema.safeParse({ prompt: 'Check bedtime', delay_minutes }).success, false);
   }
-  assert.equal(followUpInputSchema.safeParse({ prompt: ' ', delay_hours: 24 }).success, false);
-  assert.equal(followUpInputSchema.parse({ prompt: ' Check bedtime ', delay_hours: .5 }).prompt, 'Check bedtime');
+  assert.equal(followUpInputSchema.safeParse({ prompt: ' ', delay_minutes: 1440 }).success, false);
+  assert.equal(followUpInputSchema.parse({ prompt: ' Check bedtime ', delay_minutes: .5 }).prompt, 'Check bedtime');
 });
 test('saves multiple reminders without overwriting and calculates due time', () => {
   const store = storage();
   const before = Date.now();
-  const first = saveFollowUp(store, { prompt: 'Check bedtime', delay_hours: 24 });
-  saveFollowUp(store, { prompt: 'کھانا کیسا رہا؟', delay_hours: 72 });
+  const first = saveFollowUp(store, { prompt: 'Check bedtime', delay_minutes: 1440 });
+  saveFollowUp(store, { prompt: 'کھانا کیسا رہا؟', delay_minutes: 4320 });
   assert.equal(readFollowUps(store).length, 2);
   assert.ok(first.dueAt >= before + 86400000 && first.dueAt <= Date.now() + 86400000);
   assert.notEqual(readFollowUps(store)[0].id, readFollowUps(store)[1].id);
@@ -41,6 +41,14 @@ test('claims one overdue reminder, retaining future and other due entries', () =
   assert.equal(takeDueFollowUp(store, 10), undefined);
   assert.equal(readFollowUps(store)[0].id, 'c');
 });
+test('fractional minutes schedule a check-in after 1.8 seconds', () => {
+  const store = storage();
+  const before = Date.now();
+  const reminder = saveFollowUp(store, { prompt: 'Quick check-in', delay_minutes: 0.03 });
+  assert.ok(reminder.dueAt >= before + 1800 && reminder.dueAt <= Date.now() + 1800);
+  assert.equal(takeDueFollowUp(store, reminder.dueAt - 1), undefined);
+  assert.equal(takeDueFollowUp(store, reminder.dueAt).id, reminder.id);
+});
 test('rejects corrupt storage and ignores malformed entries', () => {
   assert.throws(() => readFollowUps(storage('{')));
   assert.throws(() => readFollowUps(storage('{}')));
@@ -49,7 +57,7 @@ test('rejects corrupt storage and ignores malformed entries', () => {
 test('storage failures propagate to the UI handler without claiming delivery', () => {
   const store = { getItem: () => '[{"id":"a","prompt":"Check in","dueAt":1}]', setItem: () => { throw new Error('Quota'); } };
   assert.throws(() => takeDueFollowUp(store, 10), /Quota/);
-  assert.throws(() => saveFollowUp(store, { prompt: 'Check in', delay_hours: 24 }), /Quota/);
+  assert.throws(() => saveFollowUp(store, { prompt: 'Check in', delay_minutes: 1440 }), /Quota/);
   assert.throws(() => readFollowUps({ getItem: () => { throw new Error('Privacy'); } }), /Privacy/);
 });
 
@@ -70,7 +78,7 @@ test('SDK accepts completed scheduling tool parts on the next turn', async () =>
   const tools = { schedule_follow_up: tool({ inputSchema: followUpInputSchema, execute: async () => 'Follow up scheduled.' }) };
   const messages = await validateUIMessages({ tools, messages: [
     { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Check in tomorrow' }] },
-    { id: 'a1', role: 'assistant', parts: [{ type: 'tool-schedule_follow_up', toolCallId: 'call1', state: 'output-available', input: { prompt: 'How was bedtime?', delay_hours: 24 }, output: 'Follow up scheduled.' }] },
+    { id: 'a1', role: 'assistant', parts: [{ type: 'tool-schedule_follow_up', toolCallId: 'call1', state: 'output-available', input: { prompt: 'How was bedtime?', delay_minutes: 1440 }, output: 'Follow up scheduled.' }] },
     { id: 'u2', role: 'user', metadata: { hiddenFollowUp: true }, parts: [{ type: 'text', text: 'It is time for the scheduled check-in.' }] },
   ] });
   const modelMessages = await convertToModelMessages(messages);
@@ -80,11 +88,11 @@ test('SDK accepts completed scheduling tool parts on the next turn', async () =>
 
 test('persists known child names and preserves reminders created before names were added', () => {
   const store = storage('[{"id":"old","prompt":"bedtime","dueAt":1}]');
-  saveFollowUp(store, { prompt: 'eating vegetables', delay_hours: 24, child_name: '  عائشہ  ' });
+  saveFollowUp(store, { prompt: 'eating vegetables', delay_minutes: 1440, child_name: '  عائشہ  ' });
   const pending = readFollowUps(store);
   assert.equal(pending[0].child_name, undefined);
   assert.equal(pending[1].child_name, 'عائشہ');
   assert.equal(takeDueFollowUp(store, pending[1].dueAt).id, 'old');
   assert.equal(takeDueFollowUp(store, pending[1].dueAt).child_name, 'عائشہ');
-  assert.equal(followUpInputSchema.safeParse({ prompt: 'bedtime', delay_hours: 24, child_name: 4 }).success, false);
+  assert.equal(followUpInputSchema.safeParse({ prompt: 'bedtime', delay_minutes: 1440, child_name: 4 }).success, false);
 });

@@ -34,7 +34,7 @@ test('restores exact English/Urdu text and crisis responses', async () => {
 test('preserves hidden trigger metadata and completed tool results', async () => {
   const messages = [
     { ...user, metadata: { hiddenFollowUp: true } },
-    { id: 'coach', role: 'assistant', parts: [{ type: 'tool-schedule_follow_up', toolCallId: 't1', state: 'output-available', input: { prompt: 'How was bedtime?', delay_hours: 24 }, output: 'Follow up scheduled.' }] },
+    { id: 'coach', role: 'assistant', parts: [{ type: 'tool-schedule_follow_up', toolCallId: 't1', state: 'output-available', input: { prompt: 'How was bedtime?', delay_minutes: 1440 }, output: 'Follow up scheduled.' }] },
   ];
   const store = storage();
   saveChatHistory(store, messages);

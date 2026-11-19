@@ -34,7 +34,7 @@ function getModel() {
 
 const tools = {
   schedule_follow_up: tool({
-    description: 'Schedule a local parenting check-in. Only schedule after the parent agrees. Give a specific prompt and a positive delay in hours. Include child_name whenever the child’s name is known.',
+    description: 'Schedule a local parenting check-in. Only schedule after the parent agrees. Give a specific prompt and a positive delay_minutes value, allowing fractional minutes. Include child_name whenever the child’s name is known.',
     inputSchema: followUpInputSchema,
     execute: async () => 'Follow up scheduled.',
   }),
