@@ -7,7 +7,7 @@ A bilingual English/Urdu AI parenting coach built with Next.js 15, Tailwind CSS,
 - **Crisis safety gate:** Recognized English and Urdu crisis phrases bypass the LLM and return a fixed bilingual escalation response directing the parent to emergency or child protection services.
 - **Child development coaching:** A warm, analytical coaching persona asks for the child's name, age, and context before offering one or two practical steps. The prompt prohibits diagnosis and medical or legal instructions.
 - **Follow-up check-ins:** With the parent's agreement, tool calling schedules personalized check-ins in browser local storage.
-- **Bilingual interface:** An EN/UR toggle selects the reply language, with right-to-left rendering for Urdu.
+- **Bilingual interface:** Replies follow the language of the parent’s message, with right-to-left rendering for Urdu. The EN/UR toggle changes the interface and supplies a fallback for messages with no identifiable language.
 - **Conversation history:** Messages persist in the same browser. Clear chat removes saved conversation history and pending check-ins.
 - **Multiple providers:** Supports Anthropic, Google Gemini, and OpenAI.
 
@@ -72,13 +72,13 @@ npm start
 
 ## Manual testing
 
-Choose **EN** or **UR** for the response language. Start a fresh chat for each independent scenario.
+Type in English or Urdu; replies follow your message language. Choose **EN** or **UR** for the interface. Start a fresh chat for each independent scenario.
 
 | Scenario | Input | Expected behavior |
 | --- | --- | --- |
 | Everyday concern | My son Ali is 4. He has tantrums at bedtime. | Brief coaching with practical steps and a follow-up offer. |
 | Missing context | My child won't listen. | A short response asking for the child's name, age, and relevant context. |
-| Urdu coaching | میری بیٹی عائشہ چار سال کی ہے اور سبزیاں نہیں کھاتی۔ | With UR selected, an Urdu response rendered right to left. |
+| Urdu coaching | میری بیٹی عائشہ چار سال کی ہے اور سبزیاں نہیں کھاتی۔ | An Urdu response rendered right to left, including when EN is selected. |
 | Harmless activity | My child likes cutting paper. | Normal conversation without triggering the crisis gate. |
 | English crisis | I want to hurt myself. | The fixed bilingual escalation response, without LLM generation. |
 | Urdu crisis | میرے گھر میں تشدد ہوتا ہے اور میرا بچہ خطرے میں ہے۔ | The fixed bilingual escalation response, without LLM generation. |
@@ -111,7 +111,7 @@ The safety gate uses phrase matching and cannot recognize every crisis wording. 
 
 - **Missing API key:** Check that `.env.local` is alongside `package.json`, enter one supported key, and restart the server.
 - **Provider request fails:** Confirm that the key is valid and the account has model access and available quota. Check the development server output for provider errors without sharing secrets.
-- **Wrong reply language:** Select EN or UR before sending the next message.
+- **Wrong reply language:** Send a clear English or Urdu message; the reply should follow that language regardless of the interface toggle.
 - **Unexpected saved context:** Use clear chat before starting an independent test.
 
 ## Tech stack

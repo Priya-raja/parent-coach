@@ -124,3 +124,27 @@ test('an earlier crisis does not trap later everyday messages or reach the model
     assert.equal(calls.length, 1);
   });
 });
+
+
+test('message language takes priority over the interface language', async () => {
+  await withEnvironment({ OPENAI_API_KEY: 'test' }, async () => {
+    for (const [language, text] of [
+      ['en', 'میرا بچہ کھانا نہیں کھاتا'],
+      ['ur', 'My child will not eat vegetables'],
+    ]) {
+      const calls = [];
+      const { POST } = load('app/api/chat/route.ts', calls);
+      const response = await POST(new Request('http://localhost/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language, messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text }] },
+        ] }),
+      }));
+      assert.equal(response.status, 200);
+      assert.equal(calls.length, 1);
+      assert.ok(calls[0].system.includes('Urdu even when the interface is English'));
+      assert.ok(calls[0].system.includes('English even when the interface is Urdu'));
+      assert.ok(!calls[0].system.includes('Reply ONLY'));
+    }
+  });
+});

@@ -101,9 +101,8 @@ export async function POST(req: Request) {
   }
 
   // 2. Normal path — stream from the model.
-  const languageInstruction = language === 'ur'
-    ? '\n\nCRITICAL: Reply ONLY in Urdu.'
-    : '\n\nCRITICAL: Reply ONLY in English.';
+  // The message language takes priority over the interface preference.
+  const languageInstruction = `\n\nReply in the language of the parent's most recent message. If it is Urdu, reply in Urdu even when the interface is English. If it is English, reply in English even when the interface is Urdu. For mixed English/Urdu, mirror the parent's mix. Only when the message has no identifiable language, use ${language === 'ur' ? 'Urdu' : 'English'} as the fallback.`;
   const result = streamText({
     model,
     system: SYSTEM_PROMPT + languageInstruction,
